@@ -1,0 +1,14 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     testnocompact
+relocations:
+  - { offsetInCU: 0x26, offset: 0x26, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x0, symBinAddr: 0x100003144, symSize: 0x6A4 }
+  - { offsetInCU: 0x42, offset: 0x42, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x0, symBinAddr: 0x100003144, symSize: 0x6A4 }
+  - { offsetInCU: 0x26, offset: 0x101, size: 0x8, addend: 0x0, symName: _InitMyMalloc, symObjAddr: 0x0, symBinAddr: 0x1000037E8, symSize: 0x3C }
+  - { offsetInCU: 0x4D, offset: 0x128, size: 0x8, addend: 0x0, symName: _MyFreeList, symObjAddr: 0x1000F30, symBinAddr: 0x101008000, symSize: 0x0 }
+  - { offsetInCU: 0xB3, offset: 0x18E, size: 0x8, addend: 0x0, symName: _MyBuff, symObjAddr: 0xF30, symBinAddr: 0x100008000, symSize: 0x0 }
+  - { offsetInCU: 0xCC, offset: 0x1A7, size: 0x8, addend: 0x0, symName: _InitMyMalloc, symObjAddr: 0x0, symBinAddr: 0x1000037E8, symSize: 0x3C }
+  - { offsetInCU: 0xE1, offset: 0x1BC, size: 0x8, addend: 0x0, symName: _MyMalloc, symObjAddr: 0x3C, symBinAddr: 0x100003824, symSize: 0x1A0 }
+  - { offsetInCU: 0x133, offset: 0x20E, size: 0x8, addend: 0x0, symName: _MyFree, symObjAddr: 0x1DC, symBinAddr: 0x1000039C4, symSize: 0x250 }
+  - { offsetInCU: 0x173, offset: 0x24E, size: 0x8, addend: 0x0, symName: _PrintMyMallocFreeList, symObjAddr: 0x42C, symBinAddr: 0x100003C14, symSize: 0x98 }
+...
