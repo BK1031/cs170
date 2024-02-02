@@ -24,7 +24,7 @@ CFLAGS = -c -I${XCOMP}/include -G0
 #if it is not used, the linker generates too many sections of assembly
 #code and then coff2noff fails to convert the file
 
-EXECUTABLES = simple_exit
+EXECUTABLES = evil_test good_test
 
 start: all
 
@@ -36,7 +36,12 @@ CFLAGS = -c -I/usr/include -I${XCOMP}/include -G0
 #if it is not used, the linker generates too many sections of assembly
 #code and then coff2noff fails to convert the file
 
-simple_exit: simple_exit.o ${CRT} ${ASSIST} ${LIBSYS} ${LIBC}
+good_test: good_test.o ${CRT} ${ASSIST} ${LIBSYS} ${LIBC}
+	${LD} ${LDFLAGS} -o $@.coff ${CRT} ${ASSIST} $@.o ${LIBS}
+	${C2N} $@.coff $@
+	/bin/rm $@.coff
+
+evil_test: evil_test.o ${CRT} ${ASSIST} ${LIBSYS} ${LIBC}
 	${LD} ${LDFLAGS} -o $@.coff ${CRT} ${ASSIST} $@.o ${LIBS}
 	${C2N} $@.coff $@
 	/bin/rm $@.coff

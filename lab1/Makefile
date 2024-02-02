@@ -18,7 +18,7 @@ KHOME = /cs/faculty/rich/cs170
 CFLAGS = -g -I$(KHOME)/include -I.
 #LIBCVERSION = $(shell getconf GNU_LIBC_VERSION | grep glibc | sed 's/glibc \([0-9]*\.[0-9]*\).*/\1/')
 #INCLUDES = -I$(KOSDIR)/include
-LIB = $(KHOME)/lib/libsim.a $(KHOME)/lib/libkt.a $(KHOME)/lib/libfdr.a $(KHOME)/lib/libkos.a
+LIB = $(KHOME)/lib/libsim.a $(KHOME)/lib/libkt.a $(KHOME)/lib/libfdr.a $(KHOME)/lib/libkos.a ${KHOME}/lib/libfdr.a
 #LIB = -L$(KOSDIR)/lib -lsim -lkt$(LIBCVERSION) -lfdr -lnsl
 MAIN = $(KHOME)/lib/main_lab1.o
 

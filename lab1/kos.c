@@ -5,35 +5,32 @@
 #include <stdlib.h>
 
 #include "simulator.h"
+#include "jval.h"
+#include "dllist.h"
+
+struct PCB {
+    int registers[NumTotalRegs];
+};
+
+Dllist readyQueue;
+struct PCB *running;
+
+void scheduler()
+{
+    readyQueue = new_dllist();
+    struct PCB *p;
+    if (dll_empty(readyQueue)) {
+        running = NULL;
+        noop();
+    } else {
+        p = (struct PCB *) dll_first(readyQueue)->val.v;
+        dll_delete_node(dll_first(readyQueue));
+        running = p;
+        run_user_code(p->registers);
+    }
+}
 
 void KOS()
 {
-    int registers[NumTotalRegs];
-    int i;
-
-    bzero(main_memory, MemorySize);
-
-    if (load_user_program("a.out") < 0) {
-        fprintf(stderr,"Can't load program.\n");
-        exit(1);
-    }
-
-    for (i=0; i < NumTotalRegs; i++)
-        registers[i] = 0;
-
-    /* set up the program counters and the stack register */
-
-    registers[PCReg] = 0;
-    registers[NextPCReg] = 4;
-
-    /* need to back off from top of memory */
-    /* 12 for argc, argv, envp */
-    /* 12 for stack frame */
-    registers[StackReg] = MemorySize - 24;
-
-    printf("Running user code.\n");
-
-    run_user_code(registers);
-
-    /* not reached .. */
+    scheduler();
 }

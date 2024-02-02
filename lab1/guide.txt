@@ -1,0 +1,401 @@
+The first few steps are just so that you can your hands wet and see some
+of the parts of kos.
+
+Step 1 -- delete everything in KOS().  Instead, have kos call SYSHalt().
+          Test it out, both with and without an external console.
+
+Step 2 -- Kill the SYSHalt().  Instead, insert a noop() there.  Test it
+          out -- it should hang.  Now, try it again and type into the
+          console.  Nothing happens.  Is that right?  Try it again with
+          the -d e flag.  Then look in exception.c and you'll see what's
+          happening each time the console interrupts the CPU.  Put
+          a print statement there to assure yourself that this is all
+          ok.  Then remove it.
+
+Step 3 -- Now, try writing a character to the console.  Do:
+                      console_write('H');
+          and then do a noop() in the main kos() code.
+          What happens (again, use the -d e flag)?
+          Try writing two characters in rapid succession:
+                      console_write('H');
+                      console_write('i');
+                      noop();
+          What happens?  Ok, take out the second console_write() and
+          in exception.c, put a console_write('i') call when you
+          catch the ConsoleWriteInt interrupt (before the noop()).
+          Now what happens when you run it?  Is that what you expected?  Make
+          sure you understand why.  Remove all the code you put in for
+          steps 2 and 3.
+
+Step 4 -- The way that I am structuring things is as follows.  There are
+          going to be many kt threads running in the operating system.
+          For example, there is going to be a thread whose sole job is
+          to read characters from the console and put them into a buffer.
+          Remember how we said that threads allow you to encapsulate
+          functionality?  This is it.  Likewise, there will be a thread whose
+          sole job is to take characters from a buffer, and write them onto
+          the console.
+
+          If a kt thread in KOS is able to run, then it should run in
+          preference to executing user code.  Only if there is nothing
+          else for the operating system to do should user code be run.
+
+          The procedure that runs user jobs is the scheduler.  It takes
+          a user job off the ready queue and executes it (with
+          run_user_code()).  If there is no user job to execute, it
+          should call noop().
+
+          What I did in step 4 was set up the scheduler.  I defined a
+          "PCB" (Process Control Block) struct to contain information about
+          a user process.  At this point the only thing that this contains
+          is the registers for the process.   I also define a dllist called
+          the readyq which will hold processes to run.  The scheduler is a
+          procedure which checks the ready queue.  If it's empty, then it
+          calls noop().  Otherwise, it takes the first PCB off the readyq
+          and calls run_user_code() on its registers.  Obviously, there is
+          a global variable pointing to the PCB of the currently running
+          process (or NULL if noop() is running).
+
+          Finally, instead of calling noop() initially, I call the scheduler.
+          I test it -- this of course does nothing but call noop(), but
+          hey, that's not bad.
+
+Step 5 -- Now, here's the subtle part.  The only two places where
+          KOS gets control once the first noop() or run_user_code()
+          is called is in either exceptionHandler() or interruptHandler().
+          What these procedures will do is the following:
+
+          - save the current state of the user program (if noop() was
+            being run, then nothing needs to be done),
+          - fork off a thread to service the interrupt
+          - call the scheduler, which calls kt_joinall and will run when all
+	    the threads are done.
+
+          To prepare for that, take out all of the noop()'s in exception.c,
+          and instead run the scheduler call at the end of both
+          exceptionHandler() and interruptHandler().
+
+          Test this out (it will do nothing, but test out typing into the
+          console and make sure enough interrupts are caught using the -d e
+          flag).
+
+Step 6 -- To reiterate, the only place where run_user_code() or
+          noop() will be called is in the scheduler.  The only time the
+          scheduler will be called is when all threads are blocked.
+
+          Now, we're going to try running a user program.  Write a routine
+          initialize_user_process(char *filename);  What this does is
+
+               - Allocate a new PCB.
+               - load the program in filename into memory, and set up
+                 the PCB's registers as in the original kos code
+                 that came in the start directory.  However, instead of
+                 calling run_user_code(), you put the PCB at the end of
+                 the ready queue and then call kt_exit().  The scheduler
+                 will run the code.
+
+          After you write initialize_user_process(), in your main kos
+          code, call kt_fork(initialize_user_process, "a.out") before
+          your kt_joinall call.  Copy the halt program into a.out and
+          test it.  It should halt.
+
+          Now, copy the cpu program into a.out and try it out.  It
+          should run and then exit having used some number of user
+          ticks.  On my laptop, it was 480054 (see the Ticks: line).
+
+Step 7 -- Now, run cpu again and type into the console.  It will hang.
+          Why?  Because if you did things like I did, you didn't save
+          the state of the currently running program upon an interrupt.
+          In my code, the interrupt is processed (by printing out the
+          debugging flag) and then kt_joinall() is called. The scheduler
+          sees that nothing is left in the readyq so it runs null.  Indeed
+          all the interrupts get caught, but the cpu program is lost.
+
+          To fix this, you need to save the state of the program in
+          interruptHandler, and put it back onto the readyq before
+          processing the interrupt.  Make sure you only do this if a
+          program was running (i.e. don't do it if noop() was running).
+
+          Now, try cpu again and type -- it should finish this time!
+
+Step 8 -- There is no step 8.  Sorry.
+
+Step 9 -- Time to implement a system call.  The first one we'll implement
+          is write().  In exceptionHandler(), you need a new system call
+          case: SYS_write.  The arguments are in registers 5, 6 and 7.
+
+          When you first get into exceptionHandler(), you should save
+          the registers into your PCB struct.  Next, to
+          handle a system call, you'll fork off a thread.  That thread
+          may return instantly, or it may block (e.g. on a read or a write).
+          After forking off the thread, exceptionHandler() will go to the
+          end of its switch statements and call kt_joinall() to the
+          scheduler.  This will execute the forked thread, and when all
+          thread activity has blocked, the scheduler will run.
+
+          To return from a system call, you will be in the thread servicing
+          the system call.  To return, you will need to:
+
+          1 - Set PCReg in the saved registers to NextPCReg.  If you don't
+              do this, the process will keep calling the system call.
+          2 - Put the return value into register 2.
+          3 - Put the PCB onto the ready queue.
+          4 - Call kt_exit
+
+          The scheduler will take over and resume the process.
+
+          I implemented a procedure syscall_return(PCB, int) which
+          does the above.  The second argument is the return value.
+
+          To test this, when I got a SYS_write, I forked off a new thread
+          which calls do_write(PCB).  All do_write() does is call
+          syscall_return(PCB, 0).  In other words, when you call write(),
+          nothing gets written, and 0 is returned to you.
+
+          Test all this out by copying the hw program to a.out.  When
+          it runs, nothing should happen to the console, and it should
+          return with a value of zero.
+
+          Change do_write() to call syscall_return(PCB, 1) and test it
+          out again.  It should return with a value of 1.
+
+Step 10 -- Do the same thing with SYS_read (i.e. have it return zero).
+           Test it on the cat program.  It should do nothing.
+
+Step 11 -- Alter do_write() and do_read() to check their
+           arguments.  For example, if arg1 is not 1 or 2 in do_write(),
+           it should return with -EBADF (see "man errno" on your system).
+           If arg2 is less than zero, it should return with -EFAULT.   You'll
+           be testing it on the "errors" program.  Make sure you catch
+           at least all of those errors. Note that what we're doing here
+           is returning from a system call so you'll want to use your
+           syscall_return instead of return
+
+Step 12 -- Now, we're going to start working on writing to the console.
+           In do_write(), call console_write() on the first character
+           of arg2.  Then call P() on a semaphore for console
+           writing.  (I called mine "writeok" -- it should be
+           initialized to zero).  When the
+           P() unblocks, you'll call syscall_return(PCB, 1). Finally,
+           in exception.c, have the ConsoleWriteInt case call
+           V(writeok).
+
+           What this does is write the first character of the desired
+           buffer, and then return from the system call when it's written.
+
+           Remember that arg2 of the write call is a user address.  You'll
+           need to convert it to a system addresss before calling
+           console_write.
+
+           Test it on the hw program.  It should print a 'H' and a 't'
+           to the console, and exit with a value of 1.
+
+Step 13 -- Now, we'll write the whole buffer, a character at a time.
+           As before, after writing call P(writeok).  When that unblocks,
+           increment the number of chars written and if that's it,
+           call syscall_return.  Otherwise, call console_write() on
+           the next character, and P(writeok) again.  Etc.
+
+           Now hw should run as it is designed.  It will output:
+
+           Hello world
+           the write statement just returned 12
+
+           and it will exit with a value of 12.
+
+Step 14 -- Finally, we need to prepare for the next labs.  In subsequent
+           labs there will be more than one program in memory.  That means
+           that more than one program may want to write to the console.
+           Of course, you only want one of these to work at a time.
+           Therefore, you need a second semaphore which I call
+           (writers).  This is initialized to one.  In do_write()
+           instead of calling console_write() for the first time, call
+           P(writers).  When the P() call returns, you then go into the
+           console_write loop.  When you return from the system call,
+           call V(writers).  Have a similar setup for reading named
+           readers. This ensures that only one process will write
+           to the console at a time.  Test it again on hw.c.  Although
+           you won't see any difference from before, you'll be well
+           prepared for the next lab.
+
+Step 15 -- Now test the errors program.  Your output should be:
+
+           First error: Bad file number
+           Second error: Bad address
+           Third error: Invalid argument
+           Fourth error: Bad file number
+           Fifth error: Bad address
+           Sixth error: Bad file number
+           If six errors appear, test successful.
+
+Step 16 -- Our next step is to actually do something with the characters
+          from the console.  What we're going to do is have a console
+          read buffer.  I'm making mine 256 integers (you'll see why
+          integers later).  It has three semaphores associated with it:
+          nelem, nslots, and consoleWait.  What
+          it does is repeat the following:
+
+          - Call P() on consoleWait.  It will unblock when a character is
+            ready to read from the console.
+	  - Call P() on nslots.  This semaphore should be initialized
+	    to the number of slots in the circular buffer.  If the buffer is
+            full, it will block until the doRead() call drains it a bit.
+          - When it unblocks, it reads the character from the console and
+	    puts it in the buffer.
+	    Because the P() on nslots is passed it knows that there is space
+	    in the buffer.  The doRead() call will need to call V() on nslots
+	    every time it remove a character from the buffer so that the
+	    semaphore counts the number of available slots correctly.
+
+          Write this code using the kt threads library and then have the main
+          kos() program fork off one of these threads before calling
+          kt_joinall().  Moreover, when processing the ConsoleReadInt
+          interrupt, call V() on consoleWait.  To test it, print out
+          the contents of the buffer before calling SYSHalt().  Test
+          it by running the cpu program and typing into the console.
+          When cpu exits, the buffer should contain what you typed
+          into the buffer.
+
+          Next, try putting over 256 characters into the console (do
+          this by pasting from your mouse), and see if the code still
+          works, and if the buffer just contains the first 256
+          characters. You'll want to use a circular queue for the
+          console buffer (i.e. head and tail pointers).
+
+Step 17 -- The read system call is a little different from the write
+          system call.  What you're going to do is read characters from
+          the above buffer, blocking if necessary.  First, call P(nelem). When that
+          unblocks, you'll copy a character from the console buffer to the
+          user's buffer and return if the number of characters matches the size.
+          Otherwise, you call P(nelem) again.
+
+	  Also, every time you take a character out of the circular
+	  buffer you need to call V() on nslots so that the console read
+          thread will "know" that there is another free slot.
+
+Step 18 -- My console read buffer is a circular queue composed of ints so
+           that EOF can be detected.  If the console character is -1, then
+           that represents the end of file.  I deal with this in do_read().
+           If it gets a -1 from the console buffer, it returns
+           from the read instantly, throwing away the -1.  In that way
+           procedures may keep reading until it returns something less
+           than what they ask for, at which point they know they have hit
+           the EOF.  Insert this functionality.  Now you can run the
+           "cat" program and terminate it by typing ^D.
+
+Step 18a -- Ok, we're very close now.  The last step is to get arguments into
+           memory.  Before you try this yourself, go and look at the code in
+           the args directory (https://sites.cs.ucsb.edu/~rich/class/cs170/labs/kos_start/args/).
+           In kos.c, I set up the a local argv[] vector that looks like
+           { "a.out", "Jim", "Plank", NULL }.  By convention, argv[0] is
+           always the name of the program that will be run and that program,
+           in this step, is a.out.
+
+           I've copied the program "argtest" from the ~rich/cs170/test_execs directory
+           on csil.cs.ucsb.edu to the local file "a.out" so that my OS will
+           load and run it.
+
+	   You can download the kos and a.out files from
+           https://sites.cs.ucsb.edu/~rich/class/cs170/labs/kos_start/args
+	   to a directory and run kos with ./kos in the same directory where a.out is
+           located.  The code includes some debugging statements in exception.c.  You
+           should see something like
+
+           Probing console... done.
+           Running user code in a.out.
+           Write call -- 1 1048220 23
+                Here's the string -- this may dump.
+                &argc is -->1048484<--
+
+           Write call -- 1 1048220 16
+                Here's the string -- this may dump.
+                argc is -->3<--
+
+           Write call -- 1 1048220 22
+                Here's the string -- this may dump.
+                argv is -->1048532<--
+
+           Write call -- 1 1048220 16
+                Here's the string -- this may dump.
+                envp is -->0<--
+
+           Write call -- 1 1048220 33
+                Here's the string -- this may dump.
+                argv[0] is (1048558) -->a.out<--
+
+           Write call -- 1 1048220 31
+                Here's the string -- this may dump.
+                argv[1] is (1048554) -->Jim<--
+
+           Write call -- 1 1048220 33
+                Here's the string -- this may dump.
+                argv[2] is (1048548) -->Plank<--
+
+           Machine halting!
+
+           Make sure you understand the code in
+	   https://sites.cs.ucsb.edu/~rich/class/cs170/labs/kos_start/args/kos.c
+           before going on to the next step.
+
+
+Step 19 -- Ok, we're very very close now.  The last step is to get arguments
+           from the command line using the "-a" option.  Look at the source
+           code in https://sites.cs.ucsb.edu/~rich/class/cs170/labs/kos_start/args/kos.c
+	   Do you see how local_argv[] is set up?  kos_argv[] is an array
+	   that the bootstrap sets up for you in the same format as I've set
+           up local_argv[] where kos_argv[0] is, by convention, the name of the program you want kos
+	   to run and the other arguments are strings that you want to pass
+           to that program.  The last valid string will be followed by a NULL
+           entry.
+
+           Change your implementation of initialize_user_process() so that
+           the argument is cast to an array of character pointers.  If the
+           prototype for initialize_user_process() is
+
+           void *initialize_user_process(void *arg);
+
+	   then add a line that creates a local argv as a cast
+
+           char *my_argv[] = (char **)arg; // this will be kos_arv[] when called
+
+           then change the call to load_user_program() to use your local
+           my_argv[0], set the pcb->registers[StackReg] to MemorySize - 12, and call
+           MoreArgsToStack() and InitCRuntime() right before run_user_code:
+
+           load_user_program(my_argv[0]);
+           pcb->registers[StackReg] = MemorySize - 12;
+           user_args = MoveArgsToStack(pcb->registers,my_argv,0);
+	   InitCRuntime(user_args,pcb->registers,my_argv,0);
+           run_user_code(pcb->registers);
+
+           and then kt_fork() initialize_user_process() with kos_argv[] as
+           the argument
+
+	   kt_fork(initialize_user_process, kos_argv)
+
+	   recompile, and try running your program with the "-a" argument
+	   thus:
+
+           ./kos -a '/cs/faculty/rich/cs170/test_execs/argtest Rex, my man!'
+
+           You should see something that looks like
+
+           KOS booting... done.
+
+
+           Probing console... done.
+           &argc is -->1048440<--
+           argc is -->4<--
+           argv is -->1048488<--
+           envp is -->0<--
+           argv[0] is (1048522) -->/cs/faculty/rich/cs170/test_execs/argtest<--
+           argv[1] is (1048517) -->Rex,<--
+           argv[2] is (1048514) -->my<--
+           argv[3] is (1048509) -->man!<--
+           Machine halting!
+
+           The addresses printed by argtest might be different but you should
+           see the strings printed in this order.
+
+
+Step 20 -- Rest.  It has been a long day.
