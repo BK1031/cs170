@@ -10,19 +10,22 @@
 #include <stdlib.h>
 
 #include "simulator.h"
+#include "scheduler.h"
+#include "kt.h"
+#include "syscall.h"
 
-void
-exceptionHandler(ExceptionType which)
-{
+void exceptionHandler(ExceptionType which) {
     int             type, r5, r6, r7, newPC;
     int             buf[NumTotalRegs];
 
-    examine_registers(buf);
-    type = buf[4];
-    r5 = buf[5];
-    r6 = buf[6];
-    r7 = buf[7];
-    newPC = buf[NextPCReg];
+    examine_registers(running->registers);
+    type = running->registers[4];
+    r5 = running->registers[5];
+    r6 = running->registers[6];
+    r7 = running->registers[7];
+    newPC = running->registers[NextPCReg];
+
+//    printf("Exception %d, type %d, r5 %d, r6 %d, r7 %d, newPC %d\n", which, type, r5, r6, r7, newPC);
 
     /*
      * for system calls type is in r4, arg1 is in r5, arg2 is in r6, and
@@ -41,8 +44,17 @@ exceptionHandler(ExceptionType which)
                 case SYS_exit:
                     /* this is the _exit() system call */
                     DEBUG('e', "_exit() system call\n");
+                    for (int i = 0; i < ReadBufferSize; i++) {
+                        printf("%c", readBuffer[i]);
+                    }
                     printf("Program exited with value %d.\n", r5);
                     SYSHalt();
+                case SYS_write:
+                    kt_fork(do_write, (void*) running);
+                    break;
+                case SYS_read:
+                    kt_fork(do_read, (void*) running);
+                    break;
                 default:
                     DEBUG('e', "Unknown system call\n");
                     SYSHalt();
@@ -68,24 +80,24 @@ exceptionHandler(ExceptionType which)
             printf("Unexpected user mode exception %d %d\n", which, type);
             exit(1);
     }
-    noop();
+    scheduler();
 }
 
-void
-interruptHandler(IntType which)
-{
+void interruptHandler(IntType which) {
     switch (which) {
         case ConsoleReadInt:
             DEBUG('e', "ConsoleReadInt interrupt\n");
-            noop();
+            V_kt_sem(consoleWait);
+            scheduler();
             break;
         case ConsoleWriteInt:
             DEBUG('e', "ConsoleWriteInt interrupt\n");
-            noop();
+//            V_kt_sem(write_ok);
+            scheduler();
             break;
         default:
             DEBUG('e', "Unknown interrupt\n");
-            noop();
+            scheduler();
             break;
     }
 }
