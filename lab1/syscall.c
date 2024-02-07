@@ -25,7 +25,6 @@ void console_reader_thread() {
 }
 
 void do_write(struct PCB* pcb) {
-//    P_kt_sem(writers);
     int arg1 = pcb->registers[5];
     int arg2 = pcb->registers[6];
     int arg3 = pcb->registers[7];
@@ -41,13 +40,13 @@ void do_write(struct PCB* pcb) {
     }
 
     for (int i = 0; i < arg3; i++) {
-        printf("%c", main_memory[arg2+i]);
-//        console_write(main_memory[arg2+i]);
-//        P_kt_sem(write_ok);
+        char c = main_memory[arg2+i];
+//        printf("%c", c);
+        console_write(c);
+        P_kt_sem(write_ok);
     }
     syscall_return(pcb, arg3);
 
-//    V_kt_sem(writers);
 }
 
 void do_read(struct PCB* pcb) {
@@ -70,7 +69,7 @@ void do_read(struct PCB* pcb) {
 
         char c = readBuffer[readHead];
         readHead = (readHead + 1) % ReadBufferSize;
-        if (c == -1) {
+        if (c < 0) {
             syscall_return(pcb, 0);
         }
 

@@ -92,7 +92,7 @@ void interruptHandler(IntType which) {
             break;
         case ConsoleWriteInt:
             DEBUG('e', "ConsoleWriteInt interrupt\n");
-//            V_kt_sem(write_ok);
+            V_kt_sem(write_ok);
             scheduler();
             break;
         default:
