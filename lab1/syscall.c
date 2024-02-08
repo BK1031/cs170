@@ -25,7 +25,7 @@ void do_write(struct PCB* pcb) {
     } else if (arg3 < 0) {
         syscall_return(pcb, -EINVAL);
     } else if (arg2 + arg3 > MemorySize - 12) {
-        syscall_return(pcb, -EFAULT);
+        syscall_return(pcb, -EFBIG);
     }
 
     P_kt_sem(writers);
@@ -51,7 +51,7 @@ void do_read(struct PCB* pcb) {
     } else if (arg3 < 0) {
         syscall_return(pcb, -EINVAL);
     } else if (arg2 + arg3 > MemorySize - 12) {
-        syscall_return(pcb, -EFAULT);
+        syscall_return(pcb, -EFBIG);
     }
 
     for (int i = 0; i < arg3; i++) {
