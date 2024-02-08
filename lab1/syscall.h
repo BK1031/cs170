@@ -4,7 +4,6 @@
 #include "scheduler.h"
 
 void syscall_return(struct PCB* pcb, int return_value);
-void console_reader_thread();
 
 void do_write(struct PCB* pcb);
 void do_read(struct PCB* pcb);

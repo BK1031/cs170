@@ -10,6 +10,7 @@
 #include <stdlib.h>
 
 #include "simulator.h"
+#include "kos.h"
 #include "scheduler.h"
 #include "kt.h"
 #include "syscall.h"
@@ -44,16 +45,13 @@ void exceptionHandler(ExceptionType which) {
                 case SYS_exit:
                     /* this is the _exit() system call */
                     DEBUG('e', "_exit() system call\n");
-                    for (int i = 0; i < ReadBufferSize; i++) {
-                        printf("%c", readBuffer[i]);
-                    }
                     printf("Program exited with value %d.\n", r5);
                     SYSHalt();
                 case SYS_write:
-                    kt_fork(do_write, (void*) running);
+                    kt_fork((void*) do_write, (void*) running);
                     break;
                 case SYS_read:
-                    kt_fork(do_read, (void*) running);
+                    kt_fork((void*) do_read, (void*) running);
                     break;
                 default:
                     DEBUG('e', "Unknown system call\n");
@@ -84,6 +82,10 @@ void exceptionHandler(ExceptionType which) {
 }
 
 void interruptHandler(IntType which) {
+    if (running != NULL) {
+        examine_registers(running->registers);
+        dll_append(readyQueue, new_jval_v((void *)running));
+    }
     switch (which) {
         case ConsoleReadInt:
             DEBUG('e', "ConsoleReadInt interrupt\n");

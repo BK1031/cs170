@@ -1,3 +1,6 @@
+#include "syscall.h"
+#include "console_buf.h"
+#include "kos.h"
 #include "simulator.h"
 #include "scheduler.h"
 #include "kt.h"
@@ -8,20 +11,6 @@ void syscall_return(struct PCB* pcb, int return_value) {
     pcb->registers[2] = return_value;
     dll_append(readyQueue, new_jval_v((void *)pcb));
     kt_exit();
-}
-
-void console_reader_thread() {
-    while (1) {
-        P_kt_sem(consoleWait);
-        P_kt_sem(nslots);
-
-        char c = console_read();
-
-        readBuffer[readTail] = c;
-        readTail = (readTail + 1) % ReadBufferSize;
-
-        V_kt_sem(nelem);
-    }
 }
 
 void do_write(struct PCB* pcb) {
@@ -35,18 +24,19 @@ void do_write(struct PCB* pcb) {
         syscall_return(pcb, -EFAULT);
     } else if (arg3 < 0) {
         syscall_return(pcb, -EINVAL);
-    } else if (arg2 + arg3 > MemorySize) {
+    } else if (arg2 + arg3 > MemorySize - 12) {
         syscall_return(pcb, -EFAULT);
     }
 
+    P_kt_sem(writers);
     for (int i = 0; i < arg3; i++) {
         char c = main_memory[arg2+i];
 //        printf("%c", c);
         console_write(c);
         P_kt_sem(write_ok);
     }
+    V_kt_sem(writers);
     syscall_return(pcb, arg3);
-
 }
 
 void do_read(struct PCB* pcb) {
@@ -60,7 +50,7 @@ void do_read(struct PCB* pcb) {
         syscall_return(pcb, -EFAULT);
     } else if (arg3 < 0) {
         syscall_return(pcb, -EINVAL);
-    } else if (arg2 + arg3 > MemorySize) {
+    } else if (arg2 + arg3 > MemorySize - 12) {
         syscall_return(pcb, -EFAULT);
     }
 
@@ -69,13 +59,14 @@ void do_read(struct PCB* pcb) {
 
         char c = readBuffer[readHead];
         readHead = (readHead + 1) % ReadBufferSize;
+
+        V_kt_sem(nslots);
+
         if (c < 0) {
-            syscall_return(pcb, 0);
+            syscall_return(pcb, i);
         }
 
         main_memory[arg2+i] = c;
-
-        V_kt_sem(nslots);
     }
 
     syscall_return(pcb, arg3);

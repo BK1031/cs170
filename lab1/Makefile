@@ -23,7 +23,7 @@ LIB = $(KHOME)/lib/libsim.a $(KHOME)/lib/libkt.a $(KHOME)/lib/libfdr.a $(KHOME)/
 MAIN = $(KHOME)/lib/main_lab1.o
 
 EXECUTABLES = kos
-USER_OBJS   = exception.o kos.o syscall.o
+USER_OBJS   = exception.o kos.o scheduler.o console_buf.o syscall.o
 
 all: $(EXECUTABLES)
 
