@@ -117,10 +117,10 @@ void do_execve(struct PCB* pcb) {
     execve_return(pcb, -EINVAL);
 }
 
-void execve_return(struct PCB *pcb, int value) {
+void execve_return(struct PCB *pcb, int return_value) {
     pcb->registers[PCReg] = 0;
     pcb->registers[NextPCReg] =  4;
-    pcb->registers[2] = value;
+    pcb->registers[2] = return_value;
     dll_append(readyQueue, new_jval_v((void *)pcb));
     kt_exit();
 }

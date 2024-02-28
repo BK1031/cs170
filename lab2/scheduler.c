@@ -46,16 +46,13 @@ void *initialize_user_process(void *arg) {
         p->registers[i] = 0;
     }
 
-    load_user_program(my_argv[0]);
-    p->registers[PCReg] = 0;
-    p->registers[NextPCReg] = 4;
-    p->registers[StackReg] = MemorySize - 12;
-
     p->mem_base = User_Base;
     p->mem_limit = User_Limit;
 
-    perform_execve(p, my_argv[0], my_argv);
-    dll_append(readyQueue, new_jval_v((void *)p));
+    int result = perform_execve(p, my_argv[0], my_argv);
+    if (result == 0) {
+        dll_append(readyQueue, new_jval_v((void *)p));
+    }
 
 //    int *user_args = MoveArgsToStack(p->registers,my_argv,0);
 //    InitCRuntime(user_args,p->registers,my_argv,0);
