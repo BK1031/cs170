@@ -14,7 +14,6 @@ void syscall_return(struct PCB* pcb, int return_value) {
 }
 
 bool ValidAddress(struct PCB* pcb) {
-    struct PCB *pcb = (struct PCB*)arg;
     if (pcb->registers[RetAddrReg] >= 0 && pcb->registers[RetAddrReg] <= pcb->mem_limit) {
         return TRUE;
     }
@@ -48,7 +47,7 @@ void do_fstat(struct PCB* pcb) {
         syscall_return(pcb, -EFAULT);
     }
 
-    struct KOSstat *kosstat = (struct KOSstat *)&main_memory[pcb->registers[6]+ pcb->mem_base];
+    struct KOSstat *kosstat = (struct KOSstat *)&main_memory[arg2 + pcb->mem_base];
     if (arg1 == 0) {
         stat_buf_fill(kosstat, 1);
     }
@@ -56,6 +55,32 @@ void do_fstat(struct PCB* pcb) {
         stat_buf_fill(kosstat, 256);
     }
     syscall_return(pcb, 0);
+}
+
+void getpagesize(struct PCB* pcb) {
+    syscall_return(pcb, PageSize);
+}
+
+void do_sbrk(struct PCB* pcb) {
+    int arg1 = pcb->registers[5];
+    int arg2 = pcb->registers[6];
+    int arg3 = pcb->registers[7];
+
+    if (!ValidAddress(pcb)) {
+        syscall_return(pcb, -EFAULT);
+    }
+
+    if (pcb->sbrk == NULL) {
+        pcb->sbrk = 0;
+    }
+
+    int old_sbrk = pcb->sbrk;
+    int new_sbrk = old_sbrk + arg1;
+    if (new_sbrk > User_Limit) {
+        syscall_return(pcb, -ENOMEM);
+    }
+    pcb->sbrk = new_sbrk;
+    syscall_return(pcb, old_sbrk);
 }
 
 void do_write(struct PCB* pcb) {

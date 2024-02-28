@@ -59,6 +59,12 @@ void exceptionHandler(ExceptionType which) {
                 case SYS_fstat:
                     kt_fork((void*) do_fstat, (void*) running);
                     break;
+                case SYS_getpagesize:
+                    kt_fork((void*) getpagesize, (void *) running);
+                    break;
+                case SYS_sbrk:
+                    kt_fork((void*) do_sbrk, (void*) running);
+                    break;
                 default:
                     DEBUG('e', "Unknown system call\n");
                     SYSHalt();

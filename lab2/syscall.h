@@ -9,6 +9,8 @@ bool ValidAddress(struct PCB* pcb);
 
 void do_ioctl(struct PCB* pcb);
 void do_fstat(struct PCB* pcb);
+void getpagesize(struct PCB* pcb);
+void do_sbrk(struct PCB* pcb);
 void do_write(struct PCB* pcb);
 void do_read(struct PCB* pcb);
 
