@@ -1,12 +1,19 @@
 #ifndef CONSOLE_BUF_H
 #define CONSOLE_BUF_H
 
-#define ReadBufferSize 256
+#include "kt.h"
 
-extern int readBuffer[ReadBufferSize];
-extern int readHead;
-extern int readTail;
+#define ConsoleBufferSize 256
+
+extern struct buffer* consoleBuffer;
+
+struct buffer {
+    int* buff;
+    int head;
+    int tail;
+    int size;
+};
 
 void console_reader_thread();
 
-#endif // CONSOLE_BUF_H
+#endif
