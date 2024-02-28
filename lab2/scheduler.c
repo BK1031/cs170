@@ -33,6 +33,9 @@ void *initialize_user_process(void *arg) {
 
     struct PCB *p = (struct PCB *)malloc(sizeof(struct PCB));
 
+    User_Base = 0;
+    User_Limit = MemorySize;
+
     for (int i=0; i < NumTotalRegs; i++) {
         p->registers[i] = 0;
     }

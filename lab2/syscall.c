@@ -13,6 +13,33 @@ void syscall_return(struct PCB* pcb, int return_value) {
     kt_exit();
 }
 
+void do_ioctl(struct PCB* pcb) {
+    int arg1 = pcb->registers[5];
+    int arg2 = pcb->registers[6];
+    int arg3 = pcb->registers[7];
+
+    if (arg1 != 1 || arg2 != JOS_TCGETP) {
+        syscall_return(pcb, -EINVAL);
+    }
+
+    struct JOStermios *termios = (struct JOStermios *)arg3;
+    if (termios == NULL) {
+        printf("termios pointer is null\n");
+        syscall_return(pcb, -EFAULT);
+        return;
+    }
+
+    printf("termios: %p\n", termios);
+    ioctl_console_fill(termios);
+    syscall_return(pcb, 0);
+}
+
+void do_fstat(struct PCB* pcb) {
+    int arg1 = pcb->registers[5];
+    int arg2 = pcb->registers[6];
+    int arg3 = pcb->registers[7];
+}
+
 void do_write(struct PCB* pcb) {
     int arg1 = pcb->registers[5];
     int arg2 = pcb->registers[6];
@@ -31,7 +58,6 @@ void do_write(struct PCB* pcb) {
     P_kt_sem(writers);
     for (int i = 0; i < arg3; i++) {
         char c = main_memory[arg2+i];
-//        printf("%c", c);
         console_write(c);
         P_kt_sem(write_ok);
     }

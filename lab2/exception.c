@@ -53,6 +53,12 @@ void exceptionHandler(ExceptionType which) {
                 case SYS_read:
                     kt_fork((void*) do_read, (void*) running);
                     break;
+                case SYS_ioctl:
+                    kt_fork((void*) do_ioctl, (void*) running);
+                    break;
+                case SYS_fstat:
+                    kt_fork((void*) do_fstat, (void*) running);
+                    break;
                 default:
                     DEBUG('e', "Unknown system call\n");
                     SYSHalt();
