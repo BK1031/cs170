@@ -13,10 +13,22 @@ void syscall_return(struct PCB* pcb, int return_value) {
     kt_exit();
 }
 
+bool ValidAddress(struct PCB* pcb) {
+    struct PCB *pcb = (struct PCB*)arg;
+    if (pcb->registers[RetAddrReg] >= 0 && pcb->registers[RetAddrReg] <= pcb->mem_limit) {
+        return TRUE;
+    }
+    return FALSE;
+}
+
 void do_ioctl(struct PCB* pcb) {
     int arg1 = pcb->registers[5];
     int arg2 = pcb->registers[6];
     int arg3 = pcb->registers[7];
+
+    if (!ValidAddress(pcb)) {
+        syscall_return(pcb, -EFAULT);
+    }
 
     if (arg1 != 1 || arg2 != JOS_TCGETP) {
         syscall_return(pcb, -EINVAL);
@@ -31,6 +43,19 @@ void do_fstat(struct PCB* pcb) {
     int arg1 = pcb->registers[5];
     int arg2 = pcb->registers[6];
     int arg3 = pcb->registers[7];
+
+    if (!ValidAddress(pcb)) {
+        syscall_return(pcb, -EFAULT);
+    }
+
+    struct KOSstat *kosstat = (struct KOSstat *)&main_memory[pcb->registers[6]+ pcb->mem_base];
+    if (arg1 == 0) {
+        stat_buf_fill(kosstat, 1);
+    }
+    if (arg1 == 2 || arg1 == 1) {
+        stat_buf_fill(kosstat, 256);
+    }
+    syscall_return(pcb, 0);
 }
 
 void do_write(struct PCB* pcb) {

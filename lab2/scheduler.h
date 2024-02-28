@@ -7,6 +7,11 @@
 
 struct PCB {
     int registers[NumTotalRegs];
+    int sbrk;
+    int mem_base;
+    int mem_limit;
+
+    unsigned short pid;
 };
 
 extern Dllist readyQueue;
