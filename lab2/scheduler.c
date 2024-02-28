@@ -59,30 +59,30 @@ void* initialize_user_process(void* arg) {
     init->waiters = new_dllist();
     init->children = make_jrb();
 
-    struct PCB* my_pcb = (struct PCB*)malloc(sizeof(struct PCB));
+    struct PCB* p = (struct PCB*)malloc(sizeof(struct PCB));
     for (int i=0; i < NumTotalRegs; i++) {
-        my_pcb->registers[i] = 0;
+        p->registers[i] = 0;
     }
 
-    my_pcb->registers[PCReg] = 0;
-    my_pcb->registers[NextPCReg] = 4;
-    my_pcb->mem_base = User_Base;
-    my_pcb->mem_limit = User_Limit;
+    p->registers[PCReg] = 0;
+    p->registers[NextPCReg] = 4;
+    p->mem_base = User_Base;
+    p->mem_limit = User_Limit;
     memory_partitions[0] = 1;
-    my_pcb->mem_slot = 0;
+    p->mem_slot = 0;
 
-    my_pcb->pid = get_new_pid();
-    my_pcb->parent = init;
-    my_pcb->waiters_sem = make_kt_sem(0);
-    my_pcb->waiters = new_dllist();
-    my_pcb->children = make_jrb();
+    p->pid = get_new_pid();
+    p->parent = init;
+    p->waiters_sem = make_kt_sem(0);
+    p->waiters = new_dllist();
+    p->children = make_jrb();
 
-    jrb_insert_int(init->children, my_pcb->pid, new_jval_v((void *)my_pcb));
+    jrb_insert_int(init->children, p->pid, new_jval_v((void *)p));
 
     char **my_argv = (char **)arg;
-    int result = perform_execve(my_pcb, my_argv[0], my_argv);
+    int result = perform_execve(p, my_argv[0], my_argv);
     if (result == 0) {
-        dll_append(readyQueue, new_jval_v((void*)my_pcb));
+        dll_append(readyQueue, new_jval_v((void*)p));
     }
 
     kt_exit();
