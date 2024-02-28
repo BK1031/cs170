@@ -9,24 +9,27 @@
  */
 #include <stdlib.h>
 
+#include "dllist.h"
 #include "simulator.h"
-#include "kos.h"
 #include "scheduler.h"
+#include "kos.h"
 #include "kt.h"
 #include "syscall.h"
+#include "console_buf.h"
 
-void exceptionHandler(ExceptionType which) {
-    int             type, r5, r6, r7, newPC;
-    int             buf[NumTotalRegs];
+void exceptionHandler(ExceptionType which)
+{
+    int type, r5, r6, r7, newPC;
+    //int buf[NumTotalRegs];
 
-    examine_registers(running->registers);
+    if (!is_noop) {
+        examine_registers(running->registers);
+    }
     type = running->registers[4];
     r5 = running->registers[5];
     r6 = running->registers[6];
     r7 = running->registers[7];
     newPC = running->registers[NextPCReg];
-
-//    printf("Exception %d, type %d, r5 %d, r6 %d, r7 %d, newPC %d\n", which, type, r5, r6, r7, newPC);
 
     /*
      * for system calls type is in r4, arg1 is in r5, arg2 is in r6, and
@@ -34,37 +37,38 @@ void exceptionHandler(ExceptionType which) {
      * pc before returning!
      */
 
-    switch (which) {
+    switch (which)
+    {
         case SyscallException:
             /* the numbers for system calls is in <sys/syscall.h> */
-            switch (type) {
+            switch (type)
+            {
                 case 0:
                     /* 0 is our halt system call number */
                     DEBUG('e', "Halt initiated by user program\n");
                     SYSHalt();
                 case SYS_exit:
                     /* this is the _exit() system call */
-                    DEBUG('e', "_exit() system call\n");
-                    kt_fork((void *) do_exit, (void *) running);
-//                    SYSHalt();
+                    kt_fork((void *)do_exit, (void *) running);
+                    DEBUG('e', "exit() system call\n");
                     break;
                 case SYS_write:
-                    kt_fork((void*) do_write, (void*) running);
+                    kt_fork((void *) do_write, (void *) running);
                     break;
                 case SYS_read:
-                    kt_fork((void*) do_read, (void*) running);
+                    kt_fork((void *) do_read, (void *) running);
                     break;
                 case SYS_ioctl:
-                    kt_fork((void*) do_ioctl, (void*) running);
+                    kt_fork((void*) ioctl, (void *) running);
                     break;
                 case SYS_fstat:
-                    kt_fork((void*) do_fstat, (void*) running);
+                    kt_fork((void*) fstat, (void *) running);
                     break;
                 case SYS_getpagesize:
                     kt_fork((void*) getpagesize, (void *) running);
                     break;
                 case SYS_sbrk:
-                    kt_fork((void*) do_sbrk, (void*) running);
+                    kt_fork((void*) do_sbrk, (void *) running);
                     break;
                 case SYS_execve:
                     kt_fork((void *) do_execve, (void *) running);
@@ -74,6 +78,18 @@ void exceptionHandler(ExceptionType which) {
                     break;
                 case SYS_fork:
                     kt_fork((void *) do_fork, (void *) running);
+                    break;
+                case SYS_getdtablesize:
+                    kt_fork((void*) getdtablesize, (void *) running);
+                    break;
+                case SYS_close:
+                    kt_fork((void*) do_close, (void *) running);
+                    break;
+                case SYS_wait:
+                    kt_fork((void*) do_wait, (void *) running);
+                    break;
+                case SYS_getppid:
+                    kt_fork((void *) get_ppid, (void *) running);
                     break;
                 default:
                     DEBUG('e', "Unknown system call\n");
@@ -103,25 +119,29 @@ void exceptionHandler(ExceptionType which) {
     scheduler();
 }
 
-void interruptHandler(IntType which) {
-    if (running != NULL) {
+void interruptHandler(IntType which)
+{
+    if (!is_noop) {
+        running->registers[NumTotalRegs];
         examine_registers(running->registers);
-        dll_append(readyQueue, new_jval_v((void *)running));
+        dll_append(readyQueue, new_jval_v((void *) running));
     }
+
     switch (which) {
         case ConsoleReadInt:
             DEBUG('e', "ConsoleReadInt interrupt\n");
             V_kt_sem(consoleWait);
-            scheduler();
             break;
         case ConsoleWriteInt:
             DEBUG('e', "ConsoleWriteInt interrupt\n");
-            V_kt_sem(write_ok);
-            scheduler();
+            V_kt_sem(writeok);
+            break;
+        case TimerInt:
+            DEBUG('e', "TimerInt interrupt\n");
             break;
         default:
             DEBUG('e', "Unknown interrupt\n");
-            scheduler();
             break;
     }
+    scheduler();
 }

@@ -1,20 +1,27 @@
 #ifndef SCHEDULER_H
 #define SCHEDULER_H
-
-#include "dllist.h"
-#include "simulator.h"
-#include "kt.h"
 #include "jrb.h"
+#include "memory.h"
+#include "kt.h"
+#include "kos.h"
+#include "dllist.h"
 
 struct PCB {
     int registers[NumTotalRegs];
-    int sbrk;
-    int mem_base;
+    void* sbrk_ptr;
+
     int mem_limit;
+    int mem_base;
 
     unsigned short pid;
-    int mem_bin;
     int return_value;
+    int mem_slot;
+
+    struct PCB* parent;
+
+    kt_sem waiters_sem;
+    Dllist waiters;
+    JRB children;
 };
 
 extern Dllist readyQueue;
@@ -23,12 +30,18 @@ extern struct PCB *running;
 extern int currentPID;
 extern JRB processTree;
 
+extern bool is_noop;
+extern struct PCB* init;
+
+void initialize_scheduler();
+
+void* initialize_user_process(void* arg);
+
+void scheduler();
+
+int perform_execve(struct PCB *pcb, char *filename, char **pcb_argv);
+
 int get_new_pid();
 void destroy_pid(int pid);
 
-void initialize_scheduler(void);
-void *initialize_user_process(void *arg);
-int perform_execve(struct PCB *job, char *fn, char **argv);
-void scheduler(void);
-
-#endif // SCHEDULER_H
+#endif
