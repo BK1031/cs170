@@ -7,6 +7,7 @@
 #include "scheduler.h"
 #include "kt.h"
 #include "errno.h"
+#include "memory.h"
 
 Dllist readyQueue;
 struct PCB *running;
@@ -15,6 +16,7 @@ int currentPID;
 JRB processTree;
 
 void initialize_scheduler() {
+    initialize_memory();
     readyQueue = new_dllist();
     processTree = make_jrb();
     currentPID = 0;

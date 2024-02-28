@@ -6,6 +6,7 @@
 #include "scheduler.h"
 #include "kt.h"
 #include "errno.h"
+#include "memory.h"
 
 void syscall_return(struct PCB* pcb, int return_value) {
     pcb->registers[PCReg] = pcb->registers[NextPCReg];
@@ -128,6 +129,40 @@ void execve_return(struct PCB *pcb, int return_value) {
 void getpid(struct PCB *pcb) {
     syscall_return(pcb, pcb->pid);
 }
+
+void do_fork(struct PCB* pcb){
+    struct PCB *newProc = (struct PCB*)malloc(sizeof(struct PCB));
+    bool hasSpace = FALSE;
+    for (int i = 0; i < 8; i++) {
+        if (memory_partitions[i] == 0) {
+            memory_partitions[i] = 1;
+            newProc->mem_base = i * User_Limit;
+            newProc->mem_limit = User_Limit;
+            memcpy(main_memory + newProc->mem_base, main_memory + pcb->mem_base, User_Limit);
+
+            for (int j = 0; j < NumTotalRegs; j++) {
+                newProc->registers[j] = pcb->registers[j];
+            }
+            newProc->sbrk = pcb->sbrk;
+            newProc->pid = get_new_pid();
+
+            hasSpace = TRUE;
+            break;
+        }
+    }
+
+    if (hasSpace) {
+        kt_fork((void *) finish_fork, newProc);
+        syscall_return(pcb, newProc->pid);
+    } else {
+        syscall_return(pcb, -EAGAIN);
+    }
+}
+
+void finish_fork(struct PCB* pcb) {
+    syscall_return(pcb, 0);
+}
+
 
 void do_write(struct PCB* pcb) {
     int arg1 = pcb->registers[5];
