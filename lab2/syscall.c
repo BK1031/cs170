@@ -22,16 +22,9 @@ void do_ioctl(struct PCB* pcb) {
         syscall_return(pcb, -EINVAL);
     }
 
-    struct JOStermios *termios = (struct JOStermios *)arg3;
-    if (termios == NULL) {
-        printf("termios pointer is null\n");
-        syscall_return(pcb, -EFAULT);
-        return;
-    }
-
-    printf("termios: %p\n", termios);
-    ioctl_console_fill(termios);
-    syscall_return(pcb, 0);
+    struct JOStermios *input= (struct JOStermios *)&main_memory[arg3];
+    ioctl_console_fill(input);
+    syscall_return(pcb,0);
 }
 
 void do_fstat(struct PCB* pcb) {
