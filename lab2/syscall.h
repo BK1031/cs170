@@ -16,6 +16,7 @@ void execve_return(struct PCB *pcb, int return_value);
 void getpid(struct PCB *pcb);
 void do_fork(struct PCB *pcb);
 void finish_fork(struct PCB *pcb);
+void do_exit(struct PCB *pcb);
 void do_write(struct PCB* pcb);
 void do_read(struct PCB* pcb);
 

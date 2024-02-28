@@ -58,6 +58,8 @@ void *initialize_user_process(void *arg) {
 
     p->mem_base = User_Base;
     p->mem_limit = User_Limit;
+    memory_partitions[0] = 1;
+    p->mem_bin = 0;
 
     int result = perform_execve(p, my_argv[0], my_argv);
     if (result == 0) {

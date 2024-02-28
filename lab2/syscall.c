@@ -163,6 +163,17 @@ void finish_fork(struct PCB* pcb) {
     syscall_return(pcb, 0);
 }
 
+void do_exit(struct PCB *pcb) {
+    int arg1 = pcb->registers[5];
+    int arg2 = pcb->registers[6];
+    int arg3 = pcb->registers[7];
+
+    pcb->return_value = arg1;
+    memory_partitions[pcb->mem_bin] = 0;
+    memset(main_memory + pcb->mem_base, 0, pcb->mem_limit);
+
+    kt_exit();
+}
 
 void do_write(struct PCB* pcb) {
     int arg1 = pcb->registers[5];

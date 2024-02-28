@@ -13,6 +13,8 @@ struct PCB {
     int mem_limit;
 
     unsigned short pid;
+    int mem_bin;
+    int return_value;
 };
 
 extern Dllist readyQueue;

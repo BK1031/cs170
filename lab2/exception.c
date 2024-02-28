@@ -45,8 +45,9 @@ void exceptionHandler(ExceptionType which) {
                 case SYS_exit:
                     /* this is the _exit() system call */
                     DEBUG('e', "_exit() system call\n");
-                    printf("Program exited with value %d.\n", r5);
-                    SYSHalt();
+                    kt_fork((void *) do_exit, (void *) running);
+//                    SYSHalt();
+                    break;
                 case SYS_write:
                     kt_fork((void*) do_write, (void*) running);
                     break;
