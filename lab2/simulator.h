@@ -13,15 +13,15 @@
 #define min(a,b)  (((a) < (b)) ? (a) : (b))
 #define max(a,b)  (((a) > (b)) ? (a) : (b))
 
+extern char *kos_argv[];
+extern int IsTTY;
+
 int *MoveArgsToStack(int *registers, char *argv[], int mem_base);
-InitCRuntime(int *user_args, int *registers, char *argv[], int mem_base);
+void InitCRuntime(int *user_args, int *registers, char *argv[], int mem_base);
 
 extern void     DEBUG(char flag, char *format,...);
 extern void SYSHalt();
-
-/* argument vector passed in with -a flag -- defaults to a.out */
-
-extern char *kos_argv[];
+extern void start_timer(int ticks);
 
 /* Boolean values. */
 
@@ -65,18 +65,22 @@ void            interruptHandler(IntType which);
 extern
 char           *main_memory;
 
-/* returns 0 if successful, -1 otherwise */
+/* returns sbrk(0) if successful, -1 otherwise */
 int             load_user_program(char *filename);
 
-int             run_user_code(int registers[]);
+void            run_user_code(int registers[]);
 
 /* functions to read/write to the console */
 
 extern char ConsoleGetChar();
-extern void ConsolePutChar(char ch);
+extern void ConsolePutChar(char c);
 
 #define console_read		ConsoleGetChar
-#define console_write(ch)	ConsolePutChar(ch)
+#define console_write		ConsolePutChar
+#define console_read2		ConsoleGetChar2
+#define console_write2		ConsolePutChar2
+
+extern int	which_console;
 
 /* functions and handy constants to read/write registers */
 
@@ -92,16 +96,20 @@ int             examine_registers(int buf[40]);
 #define PrevPCReg	36
 #define LoadReg		37		/* The register target of a delayed
 					 * load. */
-#define LoadValueReg	38		/* The value to be loaded by a
+#define LoadValueReg 	38		/* The value to be loaded by a
 					 * delayed load. */
 #define BadVAddrReg	39
-#define NumTotalRegs	40
+#define NumTotalRegs 	40
+
+
+/* base and bound registers */
+
+extern int             User_Base;
+extern int             User_Limit;
 
 /* function call to do nothing, NOTE: this function does NOT return */
 
-int             noop();
-
-/* system call numbers */
+void            noop();
 
 #define SYS_halt        0
 #define SYS_exit        1
@@ -122,4 +130,51 @@ int             noop();
 #define SYS_getdtablesize       89
 #define SYS_dup2        90
 
+
+struct JOStermios {
+    long            c_iflag;        /* Input Modes          */
+    long            c_oflag;        /* Output Modes         */
+    long            c_cflag;        /* Control Modes        */
+    long            c_lflag;        /* Local Modes          */
+    char            c_cc[19];       /* Control Characters   */
+    char            c_line;         /* line disc. -local ext */
+};
+
+#define JOS_IOCPARM_MASK   0x7f         /* Parameters are < 128 bytes   */
+#define JOS_IOC_VOID       (int)0x20000000      /* No parameters        */
+#define JOS_IOC_OUT        (int)0x40000000      /* Copy out parameters  */
+#define JOS_IOC_IN         (int)0x80000000      /* Copy in parameters   */
+#define JOS_IOC_INOUT      (int)(JOS_IOC_IN|JOS_IOC_OUT)
+#define JOS_IO(x,y)        (int)(JOS_IOC_VOID|(x<<8)|y)
+#define JOS_IOR(x,y,t)     (int)(JOS_IOC_OUT|((sizeof(t)&JOS_IOCPARM_MASK)<<16)|(x<<8)|y)
+#define JOS_IOW(x,y,t)     (int)(JOS_IOC_IN|((sizeof(t)&JOS_IOCPARM_MASK)<<16)|(x<<8)|y)
+#define JOS_IOWR(x,y,t)    (int)(JOS_IOC_INOUT|((sizeof(t)&JOS_IOCPARM_MASK)<<16)|(x<<8)|y)
+
+#define JOS_TCGETP          JOS_IOR('t',85,struct JOStermios)   /* Get parameters    */
+
+#define KOS_TCGETP JOS_TCGETP
+
+struct KOSstat {
+    short           st_dev;
+    long            st_ino;
+    short           st_mode;
+    short           st_nlink;
+    short           st_uid;
+    short           st_gid;
+    short           st_rdev;
+    int             st_size;
+    int             st_atime;
+    int             st_spare1;
+    int             st_mtime;
+    int             st_spare2;
+    int             st_ctime;
+    int             st_spare3;
+    long            st_blksize;
+    long            st_blocks;
+    unsigned long   st_gennum;
+    long            st_spare4;
+};
+
+void ioctl_console_fill(struct JOStermios *addr);
+void stat_buf_fill(struct KOSstat *, int blk_size);
 #endif

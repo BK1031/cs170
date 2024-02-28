@@ -7,7 +7,7 @@
       <paths name="CSIL (8435e89c-d02e-42ad-a3c4-99320c78c592)">
         <serverdata>
           <mappings>
-            <mapping deploy="/fs/student/bkathi/cs170/lab1" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="cs170/lab2" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
