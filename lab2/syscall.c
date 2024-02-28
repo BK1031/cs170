@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "syscall.h"
 #include "console_buf.h"
 #include "kos.h"
@@ -81,6 +82,47 @@ void do_sbrk(struct PCB* pcb) {
     }
     pcb->sbrk = new_sbrk;
     syscall_return(pcb, old_sbrk);
+}
+
+void do_execve(struct PCB* pcb) {
+    int arg1 = pcb->registers[5];
+    int arg2 = pcb->registers[6];
+    int arg3 = pcb->registers[7];
+
+    char **my_argv = (char **)(arg2 + main_memory + pcb->mem_base);
+    int NumArgs = 1;
+    for (int i = 0; my_argv[i] != NULL; i++) {
+        NumArgs++;
+    }
+
+    char **array = malloc(NumArgs * sizeof(char *));
+    char *filename = strdup(arg1 + main_memory + pcb->mem_base);
+
+    int *offset;
+    char *argArray;
+    int j = 0;
+    for (int i = 0; i < NumArgs - 1; i++){
+        offset = (int *)(arg2 + main_memory + pcb->mem_base + j);
+        argArray = (char *)(*offset + main_memory + pcb->mem_base);
+        array[i] = strdup(argArray);
+        j += 4;
+    }
+    array[NumArgs - 1] = '\0';
+    int result = perform_execve(pcb, filename, array);
+    if (result == 0) {
+        execve_return(pcb, 0);
+    }
+    free(filename);
+    free(array);
+    execve_return(pcb, -EINVAL);
+}
+
+void execve_return(struct PCB *pcb, int value) {
+    pcb->registers[PCReg] = 0;
+    pcb->registers[NextPCReg] =  4;
+    pcb->registers[2] = value;
+    dll_append(readyQueue, new_jval_v((void *)pcb));
+    kt_exit();
 }
 
 void do_write(struct PCB* pcb) {

@@ -65,6 +65,9 @@ void exceptionHandler(ExceptionType which) {
                 case SYS_sbrk:
                     kt_fork((void*) do_sbrk, (void*) running);
                     break;
+                case SYS_execve:
+                    kt_fork((void *) do_execve, (void *) running);
+                    break;
                 default:
                     DEBUG('e', "Unknown system call\n");
                     SYSHalt();

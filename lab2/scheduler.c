@@ -5,6 +5,7 @@
 #include "dllist.h"
 #include "scheduler.h"
 #include "kt.h"
+#include "errno.h"
 
 Dllist readyQueue;
 struct PCB *running;
@@ -65,7 +66,7 @@ void *initialize_user_process(void *arg) {
 int perform_execve(struct PCB *job, char *fn, char **argv) {
     if (load_user_program(fn) < 0) {
         fprintf(stderr,"Can't load program.\n");
-        exit(1);
+        return -EFBIG;
     }
 
     job->registers[PCReg] = 0;

@@ -120,7 +120,7 @@ Step 9 -- Now you're ready to call perform_execve() on your filename and
 	  expects the PC value to be set to 0 and the NextPC value
 	  to be set to 4.  If you implemented syscall_return as I recommended 
 	  in KOS Lab 1, then you will need to be careful about how you set 
-	  the PC and NextPC values.   
+	  the PC and NextPC values.
 
           The other issue is that you need to reset the stack pointer to point
           to the last 12 bytes of the memory space.  You do this by setting
