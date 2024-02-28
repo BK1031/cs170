@@ -29,6 +29,9 @@ void scheduler() {
 }
 
 void *initialize_user_process(void *arg) {
+    User_Base = 0;
+    User_Limit = MemorySize;
+
     char **my_argv = (char **)arg;
 
     struct PCB *p = (struct PCB *)malloc(sizeof(struct PCB));
@@ -45,9 +48,28 @@ void *initialize_user_process(void *arg) {
     p->registers[NextPCReg] = 4;
     p->registers[StackReg] = MemorySize - 12;
 
+    p->mem_base = User_Base;
+    p->mem_limit = User_Limit;
+
     int *user_args = MoveArgsToStack(p->registers,my_argv,0);
     InitCRuntime(user_args,p->registers,my_argv,0);
 
     dll_append(readyQueue, new_jval_v((void *)p));
     kt_exit();
+}
+
+int perform_execve(struct PCB *pcb, char *filename, char **pcb_argv) {
+    if (load_user_program(filename) < 0) {
+        fprintf(stderr,"Can't load program.\n");
+        exit(1);
+    }
+
+    pcb->registers[PCReg] = 0;
+    pcb->registers[NextPCReg] = 4;
+    pcb->registers[StackReg] = pcb->mem_limit - 12;
+    pcb->sbrk = load_user_program(filename);
+    int *user_args = MoveArgsToStack(pcb->registers,pcb_argv,pcb->mem_base);
+    InitCRuntime(user_args,pcb->registers,pcb_argv,pcb->mem_base);
+
+    return 0;
 }

@@ -19,6 +19,7 @@ extern struct PCB *running;
 
 void initialize_scheduler(void);
 void *initialize_user_process(void *arg);
+int perform_execve(struct PCB *pcb, char *filename, char **pcb_argv);
 void scheduler(void);
 
 #endif // SCHEDULER_H
