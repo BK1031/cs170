@@ -4,6 +4,7 @@
 #include "dllist.h"
 #include "simulator.h"
 #include "kt.h"
+#include "jrb.h"
 
 struct PCB {
     int registers[NumTotalRegs];
@@ -16,6 +17,12 @@ struct PCB {
 
 extern Dllist readyQueue;
 extern struct PCB *running;
+
+extern int currentPID;
+extern JRB processTree;
+
+int get_new_pid();
+void destroy_pid(int pid);
 
 void initialize_scheduler(void);
 void *initialize_user_process(void *arg);

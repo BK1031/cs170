@@ -125,6 +125,10 @@ void execve_return(struct PCB *pcb, int return_value) {
     kt_exit();
 }
 
+void getpid(struct PCB *pcb) {
+    syscall_return(pcb, pcb->pid);
+}
+
 void do_write(struct PCB* pcb) {
     int arg1 = pcb->registers[5];
     int arg2 = pcb->registers[6];

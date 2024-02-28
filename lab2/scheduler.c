@@ -2,6 +2,7 @@
 
 #include "simulator.h"
 #include "jval.h"
+#include "jrb.h"
 #include "dllist.h"
 #include "scheduler.h"
 #include "kt.h"
@@ -10,8 +11,13 @@
 Dllist readyQueue;
 struct PCB *running;
 
+int currentPID;
+JRB processTree;
+
 void initialize_scheduler() {
     readyQueue = new_dllist();
+    processTree = make_jrb();
+    currentPID = 0;
     running = NULL;
 }
 
@@ -46,6 +52,8 @@ void *initialize_user_process(void *arg) {
         p->registers[i] = 0;
     }
 
+    p->pid = get_new_pid();
+
     p->mem_base = User_Base;
     p->mem_limit = User_Limit;
 
@@ -74,4 +82,21 @@ int perform_execve(struct PCB *job, char *fn, char **argv) {
     InitCRuntime(user_args,job->registers,argv,job->mem_base);
 
     return 0;
+}
+
+int get_new_pid() {
+    currentPID = 0;
+    while(jrb_find_int(processTree, currentPID) != NULL) {
+        currentPID++;
+    }
+    jrb_insert_int(processTree, currentPID, new_jval_i(0));
+    return currentPID;
+}
+
+void destroy_pid(int pid) {
+    JRB node = jrb_find_int(processTree, pid);
+    if(!node) {
+        return;
+    }
+    jrb_delete_node(node);
 }
