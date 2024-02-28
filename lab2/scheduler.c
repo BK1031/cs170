@@ -24,6 +24,8 @@ void scheduler() {
         p = (struct PCB *) dll_first(readyQueue)->val.v;
         dll_delete_node(dll_first(readyQueue));
         running = p;
+        User_Base = p->mem_base;
+        User_Limit = p->mem_limit;
         run_user_code(p->registers);
     }
 }
@@ -51,25 +53,27 @@ void *initialize_user_process(void *arg) {
     p->mem_base = User_Base;
     p->mem_limit = User_Limit;
 
-    int *user_args = MoveArgsToStack(p->registers,my_argv,0);
-    InitCRuntime(user_args,p->registers,my_argv,0);
-
+    perform_execve(p, my_argv[0], my_argv);
     dll_append(readyQueue, new_jval_v((void *)p));
+
+//    int *user_args = MoveArgsToStack(p->registers,my_argv,0);
+//    InitCRuntime(user_args,p->registers,my_argv,0);
+
     kt_exit();
 }
 
-int perform_execve(struct PCB *pcb, char *filename, char **pcb_argv) {
-    if (load_user_program(filename) < 0) {
+int perform_execve(struct PCB *job, char *fn, char **argv) {
+    if (load_user_program(fn) < 0) {
         fprintf(stderr,"Can't load program.\n");
         exit(1);
     }
 
-    pcb->registers[PCReg] = 0;
-    pcb->registers[NextPCReg] = 4;
-    pcb->registers[StackReg] = pcb->mem_limit - 12;
-    pcb->sbrk = load_user_program(filename);
-    int *user_args = MoveArgsToStack(pcb->registers,pcb_argv,pcb->mem_base);
-    InitCRuntime(user_args,pcb->registers,pcb_argv,pcb->mem_base);
+    job->registers[PCReg] = 0;
+    job->registers[NextPCReg] = 4;
+    job->registers[StackReg] = job->mem_limit - 12;
+    job->sbrk = load_user_program(fn);
+    int *user_args = MoveArgsToStack(job->registers,argv,job->mem_base);
+    InitCRuntime(user_args,job->registers,argv,job->mem_base);
 
     return 0;
 }
