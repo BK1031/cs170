@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="8435e89c-d02e-42ad-a3c4-99320c78c592" name="CSIL (8435e89c-d02e-42ad-a3c4-99320c78c592)" url="http:///">
+        <fileTransfer rootFolder="/fs/student/bkathi" accessType="SFTP" host="csil.cs.ucsb.edu" port="22" sshConfigId="77b2117b-94e1-4482-bd47-539e792430c5" sshConfig="bkathi@csil.cs.ucsb.edu:22 password">
+          <advancedOptions>
+            <advancedOptions isUseRsync="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
