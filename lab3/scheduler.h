@@ -44,4 +44,29 @@ int perform_execve(struct PCB *pcb, char *filename, char **pcb_argv);
 int get_new_pid();
 void destroy_pid(int pid);
 
+struct Pipe {
+    char* buffer;
+
+    int read_count;
+    int write_count;
+
+    kt_sem read;
+    kt_sem write;
+    kt_sem nelement;
+    kt_sem space_available;
+
+    int write_head;
+    int read_head;
+
+    int writer_in_use;
+};
+
+struct FD {
+    bool console;
+    bool open;
+    bool is_read;
+    int reference_count;
+    struct Pipe* pipe;
+};
+
 #endif
