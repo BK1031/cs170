@@ -91,6 +91,15 @@ void exceptionHandler(ExceptionType which)
                 case SYS_getppid:
                     kt_fork((void *) get_ppid, (void *) running);
                     break;
+                case SYS_dup:
+                    kt_fork((void *) do_dup, (void *) running);
+                    break;
+                case SYS_dup2:
+                    kt_fork((void *) do_dup2, (void *) running);
+                    break;
+                case SYS_pipe:
+                    kt_fork((void *) do_pipe, (void *) running);
+                    break;
                 default:
                     DEBUG('e', "Unknown system call\n");
                     SYSHalt();

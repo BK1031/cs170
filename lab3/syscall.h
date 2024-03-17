@@ -32,6 +32,10 @@ extern void getdtablesize(struct PCB* pcb);
 extern void getpid(struct PCB* pcb);
 extern void get_ppid(struct PCB* pcb);
 
+extern void do_dup(struct PCB* pcb);
+extern void do_dup2(struct PCB* pcb);
+extern void do_pipe(struct PCB* pcb);
+
 extern void *do_write(struct PCB* pcb);
 extern void *do_read(struct PCB* pcb);
 

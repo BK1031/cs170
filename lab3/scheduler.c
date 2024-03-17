@@ -80,7 +80,7 @@ void* initialize_user_process(void* arg) {
     jrb_insert_int(init->children, p->pid, new_jval_v((void *)p));
 
     for (int i = 0; i < 64; i++) {
-        p->fd[i] = (struct Fd*)malloc(sizeof(struct FD));
+        p->fd[i] = (struct FD*)malloc(sizeof(struct FD));
     }
 
     // stdin

@@ -245,6 +245,149 @@ void get_ppid(struct PCB* pcb) {
     syscall_return(pcb, pcb->parent->pid);
 }
 
+void do_dup(struct PCB* pcb) {
+    int arg1 = pcb->registers[5];
+    int arg2 = pcb->registers[6];
+    int arg3 = pcb->registers[7];
+
+    int old_fd = arg1;
+    if (old_fd < 0 || old_fd >= 64) {
+        syscall_return(pcb, -EBADF);
+    }
+
+    if (pcb->fd[old_fd]->open == FALSE) {
+        syscall_return(pcb, -EBADF);
+    }
+
+    int new_fd = -1;
+    int is_found = FALSE;
+    for (int i = 0; i < 64; i++) {
+        if (pcb->fd[i]->open == FALSE) {
+            new_fd = i;
+            is_found = TRUE;
+            break;
+        }
+    }
+    if (is_found == FALSE) {
+        syscall_return(pcb, -EBADF);
+    }
+
+    pcb->fd[old_fd]->reference_count += 1;
+    pcb->fd[new_fd] = pcb->fd[old_fd];
+
+    if (pcb->fd[new_fd]->is_read == TRUE) {
+        pcb->fd[new_fd]->pipe->read_count += 1;
+    } else {
+        pcb->fd[new_fd]->pipe->write_count += 1;
+    }
+
+    syscall_return(pcb, new_fd);
+}
+
+void do_dup2(struct PCB* pcb) {
+    int arg1 = pcb->registers[5];
+    int arg2 = pcb->registers[6];
+    int arg3 = pcb->registers[7];
+
+    int old_fd = arg1;
+    if (old_fd < 0 || old_fd >= 64) {
+        syscall_return(pcb, -EBADF);
+    }
+
+    if (pcb->fd[old_fd]->open == FALSE) {
+        syscall_return(pcb, -EBADF);
+    }
+
+    int new_fd = arg2;
+    if (new_fd < 0 || new_fd >= 64) {
+        syscall_return(pcb, -EBADF);
+    }
+
+    if (pcb->fd[new_fd]->open == TRUE) {
+        pcb->fd[new_fd]->console = FALSE;
+
+        pcb->fd[new_fd]->pipe->read_count -= 1;
+        pcb->fd[new_fd]->pipe->write_count -= 1;
+
+        pcb->fd[new_fd]->pipe = NULL;
+        pcb->fd[new_fd]->open = FALSE;
+        pcb->fd[new_fd]->reference_count = 0;
+    }
+
+    pcb->fd[old_fd]->reference_count += 1;
+    pcb->fd[new_fd] = pcb->fd[old_fd];
+
+    if (pcb->fd[new_fd]->is_read == TRUE) {
+        pcb->fd[new_fd]->pipe->read_count += 1;
+    } else {
+        pcb->fd[new_fd]->pipe->write_count += 1;
+    }
+
+    syscall_return(pcb, new_fd);
+}
+
+void do_pipe(struct PCB* pcb) {
+    int arg1 = pcb->registers[5];
+    int arg2 = pcb->registers[6];
+    int arg3 = pcb->registers[7];
+
+    struct Pipe *new_pipe = malloc(sizeof(struct Pipe));
+
+    int read_Fd = -1;
+    bool isFound1 = FALSE;
+    for (int i = 0; i < 64; i++) {
+        if (pcb->fd[i]->open == FALSE) {
+            read_Fd = i;
+            isFound1 = TRUE;
+            break;
+        }
+    }
+    if (isFound1 == FALSE) {
+        syscall_return(pcb, -EMFILE);
+    }
+    pcb->fd[read_Fd]->open = TRUE;
+
+    int write_Fd = -1;
+    bool isFound2 = FALSE;
+    for (int i = 0; i < 64; i++) {
+        if (pcb->fd[i]->open == FALSE) {
+            write_Fd = i;
+            isFound2 = TRUE;
+            break;
+        }
+    }
+    if (isFound2 == FALSE) {
+        syscall_return(pcb, -EMFILE);
+    }
+    pcb->fd[write_Fd]->open=TRUE;
+
+    new_pipe->buffer = malloc(8192*sizeof(char));
+
+    new_pipe->read_count = 1;
+    new_pipe->write_count = 1;
+
+    new_pipe->read = make_kt_sem(1);
+    new_pipe->write = make_kt_sem(1);
+    new_pipe->nelement = make_kt_sem(0);
+    new_pipe->space_available = make_kt_sem(8192);
+
+    new_pipe->write_head = 0;
+    new_pipe->read_head = 0;
+
+    new_pipe->writer_in_use = 0;
+
+    pcb->fd[read_Fd]->pipe = new_pipe;
+    pcb->fd[read_Fd]->is_read = TRUE;
+
+    pcb->fd[write_Fd]->pipe = new_pipe;
+    pcb->fd[write_Fd]->is_read = FALSE;
+
+    memcpy(arg1 + main_memory + pcb->mem_base, &read_Fd, 4);
+    memcpy(arg1 + main_memory + pcb->mem_base + 4, &write_Fd, 4);
+
+    syscall_return(pcb, 0);
+}
+
 void *do_write(struct PCB* pcb) {
     int arg1 = pcb->registers[5];
     int arg2 = pcb->registers[6];
