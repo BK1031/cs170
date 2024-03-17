@@ -191,6 +191,22 @@ void do_exit(struct PCB* pcb){
         V_kt_sem(init->waiters_sem);
     }
 
+    for (int i = 0; i < 64; i++) {
+        if (pcb->fd[i]->console == FALSE) {
+            if (pcb->fd[i]->open == TRUE) {
+                if (pcb->fd[i]->is_read == TRUE) {
+                    pcb->fd[i]->pipe->read_count -= 1;
+                } else {
+                    pcb->fd[i]->pipe->write_count-= 1;
+                }
+                if (pcb->fd[i]->pipe->read_count == 0 && pcb->fd[i]->pipe->write_count == 0) {
+                    free(pcb->fd[i]->pipe);
+                }
+                pcb->fd[i]->open = FALSE;
+            }
+        }
+    }
+
     if (pcb->parent->pid == 0) {
         for (int i = 0; i < NumTotalRegs; i++) {
             pcb->registers[i] = 0;
