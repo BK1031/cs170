@@ -148,6 +148,26 @@ void do_fork(struct PCB* pcb) {
             newProc->children = make_jrb();
 
             jrb_insert_int(pcb->children, newProc->pid, new_jval_v((void*) newProc));
+
+            for (int k = 0; k < 64; k++) {
+                newProc->fd[k] = (struct FD*)malloc(sizeof(struct FD));
+                newProc->fd[k]->console = pcb->fd[k]->console;
+                newProc->fd[k]->is_read = pcb->fd[k]->is_read;
+                newProc->fd[k]->pipe = pcb->fd[k]->pipe;
+                newProc->fd[k]->open = pcb->fd[k]->open;
+                newProc->fd[k]->reference_count = pcb->fd[k]->reference_count;
+
+                if (pcb->fd[k]->open == TRUE) {
+                    if (pcb->fd[k]->console == FALSE) {
+                        if (pcb->fd[k]->is_read == TRUE) {
+                            pcb->fd[k]->pipe->read_count += 1;
+                        } else {
+                            pcb->fd[k]->pipe->write_count += 1;
+                        }
+                    }
+                }
+            }
+
             hasSpace = TRUE;
             break;
         }
