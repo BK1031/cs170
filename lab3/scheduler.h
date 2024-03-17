@@ -22,6 +22,8 @@ struct PCB {
     kt_sem waiters_sem;
     Dllist waiters;
     JRB children;
+
+    struct FD *fd[64];
 };
 
 extern Dllist readyQueue;

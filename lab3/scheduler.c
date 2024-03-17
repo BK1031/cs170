@@ -79,6 +79,39 @@ void* initialize_user_process(void* arg) {
 
     jrb_insert_int(init->children, p->pid, new_jval_v((void *)p));
 
+    for (int i = 0; i < 64; i++) {
+        p->fd[i] = (struct Fd*)malloc(sizeof(struct FD));
+    }
+
+    // stdin
+    p->fd[0]->console = TRUE;
+    p->fd[0]->open = TRUE;
+    p->fd[0]->is_read = TRUE;
+    p->fd[0]->reference_count = 0;
+    p->fd[0]->pipe = NULL;
+
+    // stdout
+    p->fd[1]->console = TRUE;
+    p->fd[1]->open = TRUE;
+    p->fd[1]->is_read = FALSE;
+    p->fd[1]->reference_count = 0;
+    p->fd[1]->pipe = NULL;
+
+    // stderr
+    p->fd[2]->console = TRUE;
+    p->fd[2]->open = TRUE;
+    p->fd[2]->is_read = FALSE;
+    p->fd[2]->reference_count = 0;
+    p->fd[2]->pipe = NULL;
+
+    for (int i = 3; i < 64; i++) {
+        p->fd[i]->console = FALSE;
+        p->fd[i]->open = FALSE;
+        p->fd[i]->is_read = FALSE;
+        p->fd[i]->reference_count = 0;
+        p->fd[i]->pipe = NULL;
+    }
+
     char **my_argv = (char **)arg;
     int result = perform_execve(p, my_argv[0], my_argv);
     if (result == 0) {
