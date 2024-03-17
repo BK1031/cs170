@@ -98,13 +98,13 @@ void do_execve(struct PCB *pcb) {
     int *offset;
     char *argArray;
     int j = 0;
-    for (int i = 0; i < numArg; i++) {
+    for (int i = 0; i < numArg - 1; i++) {
         offset = (int *)(arg2 + main_memory + pcb->mem_base + j);
         argArray = (char *)(*offset+ main_memory + pcb->mem_base);
         array[i] = strdup(argArray);
         j += 4;
     }
-    array[numArg] = '\0';
+    array[numArg - 1] = '\0';
 
     int result = perform_execve(pcb, filename, array);
 
@@ -466,37 +466,94 @@ void *do_write(struct PCB* pcb) {
     int arg2 = pcb->registers[6];
     int arg3 = pcb->registers[7];
 
-    if(!ValidAddress(pcb)) {
+    if (!ValidAddress(pcb)) {
         syscall_return(pcb, -EFAULT);
     }
 
-    if (arg1 != 1 && arg1 != 2) {
+    int file_d_num = arg1;
+    if (file_d_num < 0 || file_d_num >= 64) {
         syscall_return(pcb, -EBADF);
-    } else if (arg2 < 0) {
-        syscall_return(pcb, -EFAULT);
-    } else if (arg3 < 0) {
-        syscall_return(pcb, -EINVAL);
-    } else if (arg2 + arg3 > MemorySize) {
-        syscall_return(pcb, -EFBIG);
+    }
+    if (pcb->fd[file_d_num]->open == FALSE) {
+        syscall_return(pcb, -EBADF);
+    }
+    if (pcb->fd[file_d_num]->is_read == TRUE) {
+        syscall_return(pcb, -EBADF);
     }
 
-    P_kt_sem(writers);
-    int local = (int)(arg2 + main_memory + pcb->mem_base);
+    if (pcb->fd[file_d_num]->console == TRUE) {
+        if (arg1 != 1 && arg1 != 2){
+            syscall_return(pcb, -EBADF);
+        }
+        if (arg2 < 0) {
+            syscall_return(pcb, -EFAULT);
+        }
+        if ((arg2+arg3) > MemorySize) {
+            syscall_return(pcb,-EFBIG);
+        }
+        if (arg3 < 0) {
+            syscall_return(pcb, -EINVAL);
+        }
 
-    int write_count = 0;
-    char *chars = (char *)(local);
-    char *j = chars;
+        P_kt_sem(writers);
+        int my_local_reg6 = (int)(arg2 + main_memory + pcb->mem_base);
+
+        int write_count = 0;
+        char *chars = (char *)(my_local_reg6);
+        char *j = chars;
+
+        for (int i=0; i < arg3; i++) {
+            console_write(*j);
+            P_kt_sem(writeok);
+            j++;
+            write_count++;
+        }
+
+        V_kt_sem(writers);
+        syscall_return(pcb, write_count);
+    } else {
+        if (arg2 < 0) {
+            syscall_return(pcb, -EFAULT);
+        }
+        if ((arg2+arg3) > MemorySize) {
+            syscall_return(pcb,-EFBIG);
+        }
+        if (arg3 < 0) {
+            syscall_return(pcb, -EINVAL);
+        }
+        if (pcb->fd[file_d_num]->pipe->read_count==0) {
+            syscall_return(pcb, -EBADF);
+        }
+
+        P_kt_sem(pcb->fd[file_d_num]->pipe->write);
+        int my_local_reg6 = (int)(arg2 + main_memory + pcb->mem_base);
 
 
-    for(int i = 0; i < arg3; i++){
-        console_write(*j);
-        P_kt_sem(writeok);
-        j++;
-        write_count++;
+        int write_count = 0;
+        char *chars = (char *)(my_local_reg6);
+        char *j = chars;
+        int start_point = pcb->fd[file_d_num]->pipe->write_head;
+
+        for (int i=0; i < arg3; i++) {
+            pcb->fd[file_d_num]->pipe->buffer[start_point] = *j;
+            j++;
+            write_count++;
+
+            pcb->fd[file_d_num]->pipe->write_head = (pcb->fd[file_d_num]->pipe->write_head+1) % (8192);
+            start_point += 1;
+            P_kt_sem(pcb->fd[file_d_num]->pipe->space_available);
+
+            if (pcb->fd[file_d_num]->pipe->read_count == 0) {
+                V_kt_sem(pcb->fd[file_d_num]->pipe->write);
+                syscall_return(pcb, -EPIPE);
+            }
+            V_kt_sem(pcb->fd[file_d_num]->pipe->nelement);
+        }
+        pcb->fd[file_d_num]->pipe->writer_in_use += write_count;
+        V_kt_sem(pcb->fd[file_d_num]->pipe->write);
+
+        syscall_return(pcb, write_count);
     }
-
-    V_kt_sem(writers);
-    syscall_return(pcb, write_count);
 }
 
 void *do_read(struct PCB* pcb) {
@@ -508,34 +565,94 @@ void *do_read(struct PCB* pcb) {
         syscall_return(pcb, -EFAULT);
     }
 
-    if (arg1 != 0) {
+    int file_d_num = arg1;
+    if (file_d_num < 0 || file_d_num >= 64) {
         syscall_return(pcb, -EBADF);
-    } else if (arg2 < 0) {
-        syscall_return(pcb, -EFAULT);
-    } else if (arg3 < 0) {
-        syscall_return(pcb, -EINVAL);
-    } else if (arg2 + arg3 > MemorySize - 12) {
-//        syscall_return(pcb, -EFBIG);
     }
 
-    P_kt_sem(readers);
-    int count = 0;
-    for (int i = 0; i < arg3; i++){
-        P_kt_sem(nelem);
-        char c = (char)(consoleBuffer->buff[consoleBuffer->head]);
+    if (pcb->fd[file_d_num]->open == FALSE) {
+        syscall_return(pcb, -EBADF);
+    }
+    if (pcb->fd[file_d_num]->is_read == FALSE) {
+        syscall_return(pcb, -EBADF);
+    }
 
-        if (c == -1){
-            V_kt_sem(nslots);
-            V_kt_sem(readers);
-            syscall_return(pcb, count);
+    if (pcb->fd[file_d_num]->console == TRUE) {
+        if (arg1 != 0) {
+            syscall_return(pcb, -EBADF);
+        }
+        if (arg2 < 0) {
+            syscall_return(pcb, -EFAULT);
+        }
+        if (arg3 < 0) {
+            syscall_return(pcb, -EINVAL);
         }
 
-        ((char *)(arg2 + main_memory + pcb->mem_base))[i] = c;
+        P_kt_sem(readers);
+        int min = arg3;
+        int count = 0;
+        for (int i = 0; i < min; i++) {
+            P_kt_sem(nelem);
+            char toRead = (char)(consoleBuffer->buff[consoleBuffer->head]);
 
-        consoleBuffer->head = (consoleBuffer->head + 1) % (consoleBuffer->size);
-        V_kt_sem(nslots);
-        count++;
+            if (toRead == -1) {
+                V_kt_sem(nslots);
+                V_kt_sem(readers);
+                syscall_return(pcb, count);
+            }
+
+            ((char *)(arg2 + main_memory + pcb->mem_base))[i] = toRead;
+
+            consoleBuffer->head = (consoleBuffer->head + 1) % (consoleBuffer->size);
+            V_kt_sem(nslots);
+            count++;
+        }
+        V_kt_sem(readers);
+        syscall_return(pcb, count);
+    } else {
+        if (arg2 < 0) {
+            syscall_return(pcb, -EFAULT);
+        }
+        if (arg3 < 0) {
+            syscall_return(pcb, -EINVAL);
+        }
+
+        P_kt_sem(pcb->fd[file_d_num]->pipe->read);
+
+        int starter_int = pcb->fd[file_d_num]->pipe->read_head;
+        int min = arg3;
+        int count = 0;
+        for (int i = 0; i < min; i++) {
+            if (pcb->fd[file_d_num]->pipe->write_count == 0) {
+                V_kt_sem(pcb->fd[file_d_num]->pipe->read);
+                syscall_return(pcb, count);
+            }
+
+            if (count == pcb->fd[file_d_num]->pipe->writer_in_use) {
+                pcb->fd[file_d_num]->pipe->writer_in_use -= count;
+                V_kt_sem(pcb->fd[file_d_num]->pipe->read);
+                syscall_return(pcb, count);
+            }
+
+            P_kt_sem(pcb->fd[file_d_num]->pipe->nelement);
+            char toRead = (char)(pcb->fd[file_d_num]->pipe->buffer[starter_int]);
+
+            if (toRead == -1) {
+                V_kt_sem(pcb->fd[file_d_num]->pipe->space_available);
+                V_kt_sem(pcb->fd[file_d_num]->pipe->read);
+                syscall_return(pcb, count);
+            }
+
+            ((char *)(arg2 + main_memory + pcb->mem_base))[i] = toRead;
+
+            pcb->fd[file_d_num]->pipe->read_head = (pcb->fd[file_d_num]->pipe->read_head+1)%(8192);
+            starter_int += 1;
+
+            V_kt_sem(pcb->fd[file_d_num]->pipe->space_available);
+
+            count++;
+        }
+        V_kt_sem(pcb->fd[file_d_num]->pipe->read);
+        syscall_return(pcb, count);
     }
-    V_kt_sem(readers);
-    syscall_return(pcb, count);
 }
