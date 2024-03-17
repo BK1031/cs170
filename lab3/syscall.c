@@ -207,7 +207,44 @@ void do_exit(struct PCB* pcb){
 }
 
 void do_close(struct PCB* pcb) {
-    syscall_return(pcb, -EBADF);
+    int arg1 = pcb->registers[5];
+    int arg2 = pcb->registers[6];
+    int arg3 = pcb->registers[7];
+
+    int fd_num = arg1;
+
+    if (fd_num < 0 || fd_num >= 64) {
+        syscall_return(pcb, -EBADF);
+    }
+
+    if (pcb->fd[fd_num]->open == FALSE) {
+        syscall_return(pcb, -EBADF);
+    }
+
+    if (pcb->fd[fd_num]->console == FALSE) {
+        if (pcb->fd[fd_num]->is_read == TRUE) {
+            pcb->fd[fd_num]->pipe->read_count -= 1;
+            pcb->fd[fd_num]->open = FALSE;
+            if (pcb->fd[fd_num]->pipe->read_count == 0) {
+                for (int f = 0; f < pcb->fd[fd_num]->pipe->write_count; f++) {
+                    V_kt_sem(pcb->fd[fd_num]->pipe->space_available);
+                }
+                if (pcb->fd[fd_num]->pipe->write_count == 0) {
+                    free(pcb->fd[fd_num]->pipe);
+                }
+            }
+        } else {
+            pcb->fd[fd_num]->pipe->write_count -= 1;
+            pcb->fd[fd_num]->open = FALSE;
+            if (pcb->fd[fd_num]->pipe->write_count==0) {
+                if (pcb->fd[fd_num]->pipe->read_count==0) {
+                    free(pcb->fd[fd_num]->pipe);
+                }
+            }
+        }
+    }
+
+    syscall_return(pcb, 0);
 }
 
 void do_wait(struct PCB* pcb) {
